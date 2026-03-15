@@ -67,7 +67,7 @@ export function LandingPage() {
               alt="Everyday English Flow"
               className="w-full max-w-[280px] md:max-w-[420px] lg:max-w-[520px] h-auto object-contain"
             />
-            <div className="w-full max-w-2xl mx-auto px-6 text-center">
+            <div className="w-full max-w-xl mx-auto px-6 text-center">
               <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 dark:text-slate-300">
                 <span className="block whitespace-nowrap">Master real-life conversations with AI-powered lessons.</span>
                 <span className="block whitespace-nowrap">Tailored to your level to create custom, instant English lessons.</span>
