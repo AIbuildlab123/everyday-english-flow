@@ -25,7 +25,7 @@ export default function SavedPage() {
       const { data, error } = await supabase
         .from("saved_lessons")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
       if (!error && data) {
         setLessons(data as SavedLesson[]);
