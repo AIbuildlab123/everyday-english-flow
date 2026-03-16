@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     // Fetch Profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select('created_at, credits, is_premium as "isPremium"')
+      .select("created_at, credits, is_premium")
       .eq("id", session.user.id)
       .single();
 
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
     const now = new Date();
     const diffInDays = (now.getTime() - signupDate.getTime()) / (1000 * 3600 * 24);
 
-    if (!profile.isPremium && diffInDays > 5) {
+    if (!profile.is_premium && diffInDays > 5) {
       return NextResponse.json({ error: "TRIAL_EXPIRED" }, { status: 403 });
     }
 
