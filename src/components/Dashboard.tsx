@@ -115,12 +115,12 @@ export function Dashboard({ user }: DashboardProps) {
     async function fetchProfile() {
       const { data, error } = await supabase
         .from("profiles")
-        .select('is_premium as "isPremium", credits, created_at, last_reset_date')
+        .select("is_premium, credits, created_at, last_reset_date")
         .eq("id", user.id)
         .single();
 
       if (!error && data) {
-        const premium = data.isPremium ?? false;
+        const premium = (data as { is_premium: boolean }).is_premium ?? false;
         setIsPremium(premium);
         
         // Check and reset credits if needed
