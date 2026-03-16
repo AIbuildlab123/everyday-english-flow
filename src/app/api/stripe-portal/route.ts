@@ -20,11 +20,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    type Profile = {
+      stripe_customer_id: string | null;
+      is_premium: boolean;
+    };
+
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("stripe_customer_id, is_premium")
       .eq("id", session.user.id)
-      .single();
+      .single<Profile>();
 
     if (error || !profile) {
       console.error("[stripe-portal] Profile lookup failed:", error);

@@ -127,11 +127,17 @@ export async function POST(request: Request) {
     }
 
     // Fetch Profile
+    type Profile = {
+      created_at: string;
+      credits: number;
+      is_premium: boolean;
+    };
+
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("created_at, credits, is_premium")
       .eq("id", session.user.id)
-      .single();
+      .single<Profile>();
 
     if (profileError || !profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
