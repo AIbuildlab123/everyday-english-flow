@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const { data: profile, error } = await supabase
       .from("profiles")
-      .select('stripe_customer_id, is_premium as "isPremium"')
+      .select("stripe_customer_id, is_premium")
       .eq("id", session.user.id)
       .single();
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    if (!profile.isPremium || !profile.stripe_customer_id) {
+    if (!profile.is_premium || !profile.stripe_customer_id) {
       return NextResponse.json({ error: "NO_ACTIVE_SUBSCRIPTION" }, { status: 403 });
     }
 
