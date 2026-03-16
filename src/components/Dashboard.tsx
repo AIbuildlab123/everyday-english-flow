@@ -168,8 +168,8 @@ export function Dashboard({ user }: DashboardProps) {
   const diffInTime = now.getTime() - signupDate.getTime();
   const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
   const daysLeft = Math.max(0, 5 - diffInDays);
-  // Ignore trial expiration if user is premium
-  const isTrialExpired = !isPremium && diffInDays > 5;
+  // Ignore trial expiration if user is premium. Trial expires after 5 full days.
+  const isTrialExpired = !isPremium && diffInDays >= 5;
 
   // 3. Button Logic
   const noLevelSelected = level === null;
