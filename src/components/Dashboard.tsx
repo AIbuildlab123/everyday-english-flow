@@ -115,7 +115,7 @@ export function Dashboard({ user }: DashboardProps) {
     async function fetchProfile() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("isPremium, credits, created_at, last_reset_date")
+        .select('is_premium as "isPremium", credits, created_at, last_reset_date')
         .eq("id", user.id)
         .single();
 

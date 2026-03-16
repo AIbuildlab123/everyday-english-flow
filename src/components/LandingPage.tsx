@@ -47,9 +47,10 @@ export function LandingPage() {
 
   async function handleSignInWithGoogle() {
     const supabase = createClient();
+    const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, "");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${baseUrl}/auth/callback` },
     });
     if (error) {
       console.error("Sign in error:", error);

@@ -2,6 +2,9 @@ import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+// Redirects use request.url origin (no hardcoded localhost). Ensure Supabase
+// Dashboard → Auth → URL Configuration has Site URL and Redirect URLs set to
+// your live domain (e.g. https://yoursite.com and https://yoursite.com/auth/callback).
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");

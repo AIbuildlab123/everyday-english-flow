@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     // Fetch Profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select('created_at, credits, "isPremium"')
+      .select('created_at, credits, is_premium as "isPremium"')
       .eq("id", session.user.id)
       .single();
 
