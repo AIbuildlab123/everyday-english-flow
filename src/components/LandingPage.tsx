@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   PenLine,
   Sparkles,
+  Play,
 } from "lucide-react";
 
 const categoryCards = [
@@ -67,13 +68,23 @@ export function LandingPage() {
               alt="Everyday English Flow"
               className="w-full max-w-[280px] md:max-w-[420px] lg:max-w-[520px] h-auto object-contain"
             />
-            <div className="w-full max-w-xl mx-auto px-6 text-center">
-              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-600 dark:text-slate-300">
-                <span className="block whitespace-nowrap">Master real-life conversations with AI-powered lessons.</span>
-                <span className="block whitespace-nowrap">Tailored to your level to create custom, instant English lessons.</span>
+            <div className="w-full max-w-2xl mx-auto px-6 md:px-8 text-center">
+              <p className="text-lg md:text-xl lg:text-2xl text-slate-600 dark:text-slate-300">
+                Master real-life conversations with AI-powered lessons. Tailored to your level to create custom, instant English lessons. Start practicing today!
               </p>
             </div>
           </div>
+
+          {/* YouTube demo video - facade: thumbnail + play, load iframe on click */}
+          <div className="w-full flex justify-center px-4">
+            <div className="relative w-full max-w-xl aspect-video rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 shadow-lg">
+              <YouTubeVideoFacade
+                videoId="JAvN0YQuve0"
+                thumbnailSrc="https://img.youtube.com/vi/JAvN0YQuve0/maxresdefault.jpg"
+              />
+            </div>
+          </div>
+
           {/* Inline Pricing box under hero copy */}
           <div className="w-full flex justify-center">
             <div className="mx-auto w-full max-w-xl">
@@ -265,6 +276,55 @@ export function LandingPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/** Facade: show thumbnail + play button until click, then load YouTube iframe (youtube-nocookie.com, autoplay). */
+function YouTubeVideoFacade({
+  videoId,
+  thumbnailSrc,
+}: {
+  videoId: string;
+  thumbnailSrc: string;
+}) {
+  const [showIframe, setShowIframe] = useState(false);
+  const [thumb, setThumb] = useState(thumbnailSrc);
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+  const fallbackThumb = `https://img.youtube.com/vi/${videoId}/sddefault.jpg`;
+
+  if (showIframe) {
+    return (
+      <iframe
+        src={embedUrl}
+        title="Everyday English Flow demo"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        className="absolute inset-0 h-full w-full"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowIframe(true)}
+      className="relative block h-full w-full cursor-pointer border-0 p-0 overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+      aria-label="Play demo video"
+    >
+      <img
+        src={thumb}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+        decoding="async"
+        onError={() => setThumb(fallbackThumb)}
+      />
+      <span className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/95 text-indigo-600 shadow-lg transition-transform hover:scale-110 md:h-20 md:w-20">
+          <Play className="h-8 w-8 md:h-10 md:w-10 fill-current" aria-hidden />
+        </span>
+      </span>
+    </button>
   );
 }
 
