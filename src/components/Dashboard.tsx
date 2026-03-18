@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { Level, Category } from "@/types/lesson";
 import { createClient } from "@/lib/supabase/client";
+import { getTrialInfo, isTrialExpired as checkTrialExpired } from "@/lib/trial";
 import { InstructionsBanner } from "@/components/InstructionsBanner";
 import { LevelButtons } from "@/components/LevelButtons";
 import { CategoryButtons } from "@/components/CategoryButtons";
@@ -112,26 +113,26 @@ export function Dashboard({ user }: DashboardProps) {
     }
   }, []);
 
-  // 2. 5-Day Trial Logic (only applies if not premium). Use UTC calendar days so display matches midnight UTC.
-  const signupDate = new Date(user.created_at);
-  const now = new Date();
-  const signupUTCDay = Date.UTC(signupDate.getUTCFullYear(), signupDate.getUTCMonth(), signupDate.getUTCDate());
-  const nowUTCDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const diffInDays = Math.floor((nowUTCDay - signupUTCDay) / (1000 * 60 * 60 * 24));
-  const daysLeft = Math.max(0, 5 - diffInDays);
-  const isTrialExpired = !isPremium && diffInDays >= 5;
+  // 2. 5-Day Trial Logic — UTC only (created_at from Supabase is UTC; current time via Date.now()).
+  const isTrialExpired = checkTrialExpired(user.created_at ?? "", isPremium);
+  const trialInfo = getTrialInfo(user.created_at ?? "", isPremium);
+  const daysLeft = trialInfo.daysLeft;
+  // Kill switch: if trial expired, treat credits as 0 regardless of DB.
+  const effectiveCredits = isTrialExpired ? 0 : credits;
 
   // 3. Button Logic
   const noLevelSelected = level === null;
-  // Premium users always have credits (reset daily), so only check credits for non-premium
-  const generateDisabled = noLevelSelected || isTrialExpired || isGenerating || (!isPremium && credits <= 0);
+  const generateDisabled =
+    noLevelSelected ||
+    isTrialExpired ||
+    isGenerating ||
+    (!isPremium && effectiveCredits <= 0);
 
-  // Calculate daily credit limit based on premium status
   const dailyCreditLimit = isPremium ? 10 : 3;
-  
+
   const generateMessage = isTrialExpired
-    ? "5-Day Trial Ended — Upgrade to Premium for access"
-    : credits <= 0
+    ? "Trial expired. Please upgrade to continue."
+    : effectiveCredits <= 0
     ? `Daily limit reached. Come back tomorrow! (${dailyCreditLimit} lessons/day)`
     : noLevelSelected
     ? "Please select a level to begin."
@@ -168,7 +169,10 @@ export function Dashboard({ user }: DashboardProps) {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setLessonError((data && (data.error || data.message)) || "Generation failed.");
+        const msg = data?.error === "TRIAL_EXPIRED"
+          ? "Trial expired. Please upgrade to continue."
+          : (data && (data.error || data.message)) || "Generation failed.";
+        setLessonError(msg);
         return;
       }
 
@@ -449,7 +453,7 @@ export function Dashboard({ user }: DashboardProps) {
 
             {!isTrialExpired && (
               <p className="mt-2 text-xs text-slate-500">
-                Credits remaining today: <span className="font-bold text-indigo-600">{credits} / {dailyCreditLimit}</span>
+                Credits remaining today: <span className="font-bold text-indigo-600">{effectiveCredits} / {dailyCreditLimit}</span>
               </p>
             )}
           </div>

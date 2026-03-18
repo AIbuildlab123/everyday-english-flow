@@ -16,8 +16,25 @@ export interface TrialInfo {
 }
 
 /**
+ * Days elapsed since created_at. Uses UTC only: Date.now() and ISO string from Supabase.
+ * Do not use local time (e.g. toLocaleDateString) for trial logic.
+ */
+export function getTrialDaysElapsed(createdAtIso: string): number {
+  const createdMs = new Date(createdAtIso).getTime();
+  return (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
+}
+
+/**
+ * Trial is over when (Current UTC Time) - (created_at UTC) > 5 days and user is not premium.
+ */
+export function isTrialExpired(createdAtIso: string, isPremium: boolean): boolean {
+  if (isPremium) return false;
+  return getTrialDaysElapsed(createdAtIso) > TRIAL_DAYS;
+}
+
+/**
  * Get trial status from user's created_at and optional premium flag.
- * Uses created_at from Supabase auth user (ISO string).
+ * UTC-only: uses Date.now() and created_at ISO; no local time APIs.
  */
 export function getTrialInfo(
   createdAtIso: string,
@@ -32,17 +49,14 @@ export function getTrialInfo(
     };
   }
 
-  const created = new Date(createdAtIso);
-  const now = new Date();
-  const diffMs = now.getTime() - created.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const isExpired = diffDays >= TRIAL_DAYS;
-  const daysLeft = Math.max(0, TRIAL_DAYS - diffDays);
+  const diffDays = getTrialDaysElapsed(createdAtIso);
+  const expired = diffDays > TRIAL_DAYS;
+  const daysLeft = Math.max(0, Math.ceil(TRIAL_DAYS - diffDays));
 
   return {
-    isExpired,
+    isExpired: expired,
     daysLeft,
     isPremium: false,
-    shouldBlockGenerate: isExpired,
+    shouldBlockGenerate: expired,
   };
 }

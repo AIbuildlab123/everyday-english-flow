@@ -143,18 +143,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // 5-Day Trial Logic (UTC calendar days; expires after 5 full days)
-    const signupDate = new Date(profile.created_at);
-    const now = new Date();
-    const signupUTCDay = Date.UTC(signupDate.getUTCFullYear(), signupDate.getUTCMonth(), signupDate.getUTCDate());
-    const nowUTCDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    const diffInDays = Math.floor((nowUTCDay - signupUTCDay) / (1000 * 60 * 60 * 24));
-
-    if (!profile.is_premium && diffInDays >= 5) {
+    // 5-Day Trial — UTC only: (Current UTC Time) - (created_at UTC). No local time APIs.
+    const createdMs = new Date(profile.created_at).getTime();
+    const diffDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
+    if (!profile.is_premium && diffDays > 5) {
       return NextResponse.json({ error: "TRIAL_EXPIRED" }, { status: 403 });
     }
 
-    // Credit Check
+    // Credit check (trial-expired users already rejected above)
     if (profile.credits <= 0) {
       return NextResponse.json({ error: "OUT_OF_CREDITS" }, { status: 403 });
     }
