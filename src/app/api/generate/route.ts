@@ -143,12 +143,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // 5-Day Trial Logic
+    // 5-Day Trial Logic (UTC calendar days; expires after 5 full days)
     const signupDate = new Date(profile.created_at);
     const now = new Date();
-    const diffInDays = (now.getTime() - signupDate.getTime()) / (1000 * 3600 * 24);
+    const signupUTCDay = Date.UTC(signupDate.getUTCFullYear(), signupDate.getUTCMonth(), signupDate.getUTCDate());
+    const nowUTCDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const diffInDays = Math.floor((nowUTCDay - signupUTCDay) / (1000 * 60 * 60 * 24));
 
-    if (!profile.is_premium && diffInDays > 5) {
+    if (!profile.is_premium && diffInDays >= 5) {
       return NextResponse.json({ error: "TRIAL_EXPIRED" }, { status: 403 });
     }
 

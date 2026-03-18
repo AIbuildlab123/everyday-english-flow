@@ -63,69 +63,19 @@ export function Dashboard({ user }: DashboardProps) {
   const supabase = createClient();
   const router = useRouter();
 
-  // Helper function to check and reset credits based on last_reset_date
-  async function checkAndResetCredits(premium: boolean): Promise<number> {
-    // Get current UTC date at midnight for consistent reset time
-    const now = new Date();
-    const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const todayUTC = utcMidnight.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-    // Fetch current profile with last_reset_date
-    const { data: profileData, error: fetchError } = await supabase
-      .from("profiles")
-      .select("credits, last_reset_date")
-      .eq("id", user.id)
-      .single();
-
-    if (fetchError || !profileData) {
-      console.error("Error fetching profile for credit reset:", fetchError);
-      return premium ? 10 : 3; // Default fallback
-    }
-
-    const lastResetDate = profileData.last_reset_date 
-      ? new Date(profileData.last_reset_date).toISOString().split('T')[0]
-      : null;
-
-    // If last_reset_date is missing or different from today, reset credits
-    if (!lastResetDate || lastResetDate !== todayUTC) {
-      const newCredits = premium ? 10 : 3;
-      
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ 
-          credits: newCredits,
-          last_reset_date: todayUTC 
-        })
-        .eq("id", user.id);
-
-      if (updateError) {
-        console.error("Error resetting credits:", updateError);
-        return profileData.credits ?? (premium ? 10 : 3);
-      }
-
-      return newCredits;
-    }
-
-    // Same day - return current credits
-    return profileData.credits ?? (premium ? 10 : 3);
-  }
-
-  // 1. Fetch real Profile data on load and handle daily credit reset
+  // 1. Fetch profile (credits are reset by pg_cron at midnight UTC)
   useEffect(() => {
     async function fetchProfile() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("is_premium, credits, created_at, last_reset_date")
+        .select("is_premium, credits, created_at")
         .eq("id", user.id)
         .single();
 
       if (!error && data) {
         const premium = (data as { is_premium: boolean }).is_premium ?? false;
         setIsPremium(premium);
-        
-        // Check and reset credits if needed
-        const updatedCredits = await checkAndResetCredits(premium);
-        setCredits(updatedCredits);
+        setCredits(data.credits ?? 3);
       }
       setIsLoadingProfile(false);
     }
@@ -162,13 +112,13 @@ export function Dashboard({ user }: DashboardProps) {
     }
   }, []);
 
-  // 2. 5-Day Trial Logic (only applies if not premium)
+  // 2. 5-Day Trial Logic (only applies if not premium). Use UTC calendar days so display matches midnight UTC.
   const signupDate = new Date(user.created_at);
   const now = new Date();
-  const diffInTime = now.getTime() - signupDate.getTime();
-  const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
+  const signupUTCDay = Date.UTC(signupDate.getUTCFullYear(), signupDate.getUTCMonth(), signupDate.getUTCDate());
+  const nowUTCDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const diffInDays = Math.floor((nowUTCDay - signupUTCDay) / (1000 * 60 * 60 * 24));
   const daysLeft = Math.max(0, 5 - diffInDays);
-  // Ignore trial expiration if user is premium. Trial expires after 5 full days.
   const isTrialExpired = !isPremium && diffInDays >= 5;
 
   // 3. Button Logic
@@ -191,10 +141,6 @@ export function Dashboard({ user }: DashboardProps) {
     setIsGenerating(true);
     setLessonError(null);
     try {
-      // Check and reset credits before generating (in case date changed)
-      const updatedCredits = await checkAndResetCredits(isPremium);
-      setCredits(updatedCredits);
-
       // Check cache first
       const { data: cached } = await supabase
         .from("lessons")
