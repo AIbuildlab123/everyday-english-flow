@@ -57,6 +57,8 @@ export function Dashboard({ user }: DashboardProps) {
 
   // --- Profile Modal State ---
   const [showProfile, setShowProfile] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // --- Selected Category State ---
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -327,6 +329,26 @@ export function Dashboard({ user }: DashboardProps) {
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/";
+  }
+
+  async function handleConfirmDeleteAccount() {
+    setIsDeletingAccount(true);
+    try {
+      const res = await fetch("/api/delete-account", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || data?.message || "Failed to delete account");
+      }
+
+      // Delete flow removes the auth user; still clear local session on the client
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Delete account error:", err);
+      toast.error(err instanceof Error ? err.message : "Unable to delete account");
+      setIsDeletingAccount(false);
+      return;
+    }
   }
 
   async function handleManageSubscription() {
@@ -867,10 +889,53 @@ export function Dashboard({ user }: DashboardProps) {
                 )}
                 <button
                   type="button"
+                  onClick={() => {
+                    setShowProfile(false);
+                    setShowDeleteAccountConfirm(true);
+                  }}
+                  className="w-full rounded-lg border border-red-200 bg-red-50/20 px-4 py-2 text-sm font-medium text-[#EF4444] transition-colors hover:bg-red-100 disabled:opacity-60"
+                  disabled={isDeletingAccount}
+                >
+                  Delete Account
+                </button>
+                <button
+                  type="button"
                   onClick={handleSignOut}
                   className="w-full rounded-lg border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                 >
                   Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showDeleteAccountConfirm && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl p-6 max-w-md w-full shadow-xl">
+              <div className="space-y-3">
+                <h2 className="text-[20px] font-bold">Are you sure you want to delete your account?</h2>
+                <p className="text-sm text-zinc-500">
+                  This action is permanent and will wipe all your saved dialogues and progress.
+                </p>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteAccountConfirm(false)}
+                  disabled={isDeletingAccount}
+                  className="flex-1 rounded-lg border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-200 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteAccount}
+                  disabled={isDeletingAccount}
+                  className="flex-1 rounded-lg bg-[#EF4444] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#DC2626] disabled:opacity-60"
+                >
+                  {isDeletingAccount ? "Deleting…" : "Confirm Delete"}
                 </button>
               </div>
             </div>
