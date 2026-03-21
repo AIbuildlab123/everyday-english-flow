@@ -38,6 +38,9 @@ Generate a multiple-choice quiz question about this idiom.
 
 Return ONLY valid JSON in this exact format:
 {
+  "phrase": "The idiom itself",
+  "meaning": "Clear and concise meaning",
+  "example_sentence": "A natural sentence using the idiom in context.",
   "question": "What does the idiom '[IDIOM]' mean?",
   "options": [
     "Correct meaning",
@@ -45,8 +48,7 @@ Return ONLY valid JSON in this exact format:
     "Wrong option 2",
     "Wrong option 3"
   ],
-  "correctIndex": 0,
-  "explanation": "Brief explanation of what this idiom means."
+  "correctIndex": 0
 }
 
 Seed: ${seed}
@@ -67,7 +69,14 @@ Generate a NEW and DIFFERENT idiom question now:`;
 
     const idiomData = JSON.parse(jsonMatch[0]);
     
-    if (!idiomData.question || !Array.isArray(idiomData.options) || typeof idiomData.correctIndex !== "number") {
+    if (
+      !idiomData.question ||
+      !Array.isArray(idiomData.options) ||
+      typeof idiomData.correctIndex !== "number" ||
+      !idiomData.phrase ||
+      !idiomData.meaning ||
+      !idiomData.example_sentence
+    ) {
       return NextResponse.json({ error: "Invalid idiom data structure" }, { status: 502 });
     }
 

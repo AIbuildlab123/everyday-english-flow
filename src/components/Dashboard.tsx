@@ -12,7 +12,7 @@ import { LevelButtons } from "@/components/LevelButtons";
 import { CategoryButtons } from "@/components/CategoryButtons";
 import { SituationInput } from "@/components/SituationInput";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Check, X } from "lucide-react";
+import { Check, Flag, X } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 interface DashboardProps {
@@ -36,6 +36,7 @@ export function Dashboard({ user }: DashboardProps) {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLessonSaved, setIsLessonSaved] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<'saved' | 'updated' | null>(null);
+  const [isReportingLesson, setIsReportingLesson] = useState(false);
 
   // --- Notes State ---
 
@@ -45,10 +46,12 @@ export function Dashboard({ user }: DashboardProps) {
 
   // --- Idiom Checker State ---
   const [idiomQuestion, setIdiomQuestion] = useState<{
+    phrase: string;
+    meaning: string;
+    example_sentence: string;
     question: string;
     options: string[];
     correctIndex: number;
-    explanation?: string;
   } | null>(null);
   const [idiomAnswer, setIdiomAnswer] = useState<number | null>(null);
   const [idiomChecked, setIdiomChecked] = useState(false);
@@ -326,6 +329,35 @@ export function Dashboard({ user }: DashboardProps) {
     setIdiomChecked(false);
   }
 
+  async function handleReportLesson() {
+    if (!lesson) return;
+    setIsReportingLesson(true);
+    try {
+      const res = await fetch("/api/report-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lesson_id: null,
+          content: {
+            lesson,
+            level: level ?? "beginner",
+            situation: situation || "General everyday situation",
+            reported_at: new Date().toISOString(),
+          },
+        }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to send report");
+      }
+      toast.success("Report Sent");
+    } catch (err) {
+      console.error("Report submission error:", err);
+      toast.error("Unable to send report");
+    } finally {
+      setIsReportingLesson(false);
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/";
@@ -548,7 +580,7 @@ export function Dashboard({ user }: DashboardProps) {
                                 <div
                                   className={`p-4 rounded-2xl ring-1 ring-black/5 ${
                                     isSpeakerA
-                                      ? "bg-slate-100 dark:bg-slate-700 rounded-tl-none shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                                      ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white rounded-tl-none shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
                                       : "bg-[#0ea5e9] text-white rounded-tr-none shadow-[0_4px_12px_rgba(14,165,233,0.35),0_2px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(14,165,233,0.4)]"
                                   }`}
                                 >
@@ -560,6 +592,19 @@ export function Dashboard({ user }: DashboardProps) {
                             </div>
                           );
                         })}
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleReportLesson}
+                          disabled={isReportingLesson}
+                          className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 disabled:opacity-60"
+                          title="Report this lesson"
+                          aria-label="Report this lesson"
+                        >
+                          <Flag className="h-3.5 w-3.5" />
+                          {isReportingLesson ? "Sending..." : "Report"}
+                        </button>
                       </div>
                     </div>
                   )}
@@ -652,93 +697,6 @@ export function Dashboard({ user }: DashboardProps) {
                     </div>
                   )}
 
-                  {/* Cultural Insight */}
-                  {"culturalInsight" in lesson && (
-                    <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 rounded-r-lg">
-                      <h3 className="font-bold text-amber-900 dark:text-amber-100 mb-1">
-                        💡 Cultural Insight
-                      </h3>
-                      <p className="text-[18px] text-amber-800 dark:text-amber-200">
-                        {lesson.culturalInsight as string}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* American Culture Quiz */}
-                  {quiz.length > 0 && (
-                    <div className="mb-8 p-6 bg-white dark:bg-zinc-900 rounded-xl border-2 border-indigo-200 dark:border-indigo-800">
-                      <h3 className="text-[20px] font-bold tracking-tight mb-6 flex items-center gap-2">
-                        <span className="inline-flex shrink-0" aria-hidden title="American flag">
-                          <svg width="26" height="18" viewBox="0 0 26 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm shadow-sm">
-                            <rect width="26" height="18" fill="#B22234"/>
-                            <rect y="2" width="26" height="2" fill="#fff"/>
-                            <rect y="6" width="26" height="2" fill="#fff"/>
-                            <rect y="10" width="26" height="2" fill="#fff"/>
-                            <rect y="14" width="26" height="2" fill="#fff"/>
-                            <rect width="10" height="10" fill="#3C3B6E"/>
-                            <circle cx="2" cy="2" r="0.6" fill="#fff"/>
-                            <circle cx="5" cy="2" r="0.6" fill="#fff"/>
-                            <circle cx="8" cy="2" r="0.6" fill="#fff"/>
-                            <circle cx="2" cy="5" r="0.6" fill="#fff"/>
-                            <circle cx="5" cy="5" r="0.6" fill="#fff"/>
-                            <circle cx="8" cy="5" r="0.6" fill="#fff"/>
-                            <circle cx="2" cy="8" r="0.6" fill="#fff"/>
-                            <circle cx="5" cy="8" r="0.6" fill="#fff"/>
-                            <circle cx="8" cy="8" r="0.6" fill="#fff"/>
-                          </svg>
-                        </span>
-                        American Culture Quiz
-                      </h3>
-                      <div className="space-y-6">
-                        {quiz.map((q, i) => {
-                          const selected = quizAnswers[i] ?? null;
-                          const checked = quizChecked[i] ?? false;
-                          const correctIdx = q.correctIndex ?? -1;
-                          const isCorrect = selected !== null && correctIdx === selected;
-                          return (
-                            <div key={i} className="border-b border-zinc-200 dark:border-zinc-700 pb-4 last:border-0">
-                              <p className="font-medium mb-3 text-[17px]">
-                                {i + 1}. {q.question}
-                              </p>
-                              <div className="grid grid-cols-1 gap-2">
-                                {q.options?.map((opt, oidx) => {
-                                  const isSelected = selected === oidx;
-                                  // Show correct answer in green if question is checked
-                                  const showCorrect = checked && oidx === correctIdx;
-                                  // Show selected wrong answer in red if checked
-                                  const showIncorrect = checked && isSelected && !isCorrect;
-                                  return (
-                                    <button
-                                      key={oidx}
-                                      type="button"
-                                      onClick={() => !checked && handleCheckAnswer(i, oidx)}
-                                      disabled={checked}
-                                      className={`text-left p-4 text-lg rounded-lg border-2 transition-colors ${
-                                        showCorrect
-                                          ? "bg-green-100 border-green-400 dark:bg-green-900/30"
-                                          : showIncorrect
-                                          ? "bg-red-100 border-red-400 dark:bg-red-900/30"
-                                          : isSelected && !checked
-                                          ? "bg-indigo-100 border-indigo-400 dark:bg-indigo-900/30"
-                                          : "border-zinc-200 dark:border-zinc-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span>{opt}</span>
-                                        {showCorrect && <Check className="h-5 w-5 text-green-600" />}
-                                        {showIncorrect && <X className="h-5 w-5 text-red-600" />}
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Idiom Checker */}
                   <div className="mb-8 p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border-2 border-purple-300 dark:border-purple-700 shadow-lg">
                     <div className="flex items-center justify-between mb-4">
@@ -805,10 +763,13 @@ export function Dashboard({ user }: DashboardProps) {
                             );
                           })}
                         </div>
-                        {idiomQuestion.explanation && idiomChecked && (
+                        {idiomChecked && (
                           <div className="mt-4 p-4 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                             <p className="text-base md:text-lg text-purple-900 dark:text-purple-100 leading-relaxed">
-                              <strong>Explanation:</strong> {idiomQuestion.explanation}
+                              <strong>{idiomQuestion.phrase}:</strong> {idiomQuestion.meaning}
+                            </p>
+                            <p className="mt-2 text-sm italic text-purple-800 dark:text-purple-200">
+                              {idiomQuestion.example_sentence}
                             </p>
                           </div>
                         )}
@@ -824,6 +785,91 @@ export function Dashboard({ user }: DashboardProps) {
                       </div>
                     )}
                   </div>
+
+                  {/* American Culture Quiz */}
+                  {quiz.length > 0 && (
+                    <div className="mb-8 p-6 bg-white dark:bg-zinc-900 rounded-xl border-2 border-indigo-300 dark:border-indigo-500">
+                      <h3 className="text-[20px] font-bold tracking-tight mb-6 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                        <span className="inline-flex shrink-0" aria-hidden title="American flag">
+                          <svg width="26" height="18" viewBox="0 0 26 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm shadow-sm">
+                            <rect width="26" height="18" fill="#B22234"/>
+                            <rect y="2" width="26" height="2" fill="#fff"/>
+                            <rect y="6" width="26" height="2" fill="#fff"/>
+                            <rect y="10" width="26" height="2" fill="#fff"/>
+                            <rect y="14" width="26" height="2" fill="#fff"/>
+                            <rect width="10" height="10" fill="#3C3B6E"/>
+                            <circle cx="2" cy="2" r="0.6" fill="#fff"/>
+                            <circle cx="5" cy="2" r="0.6" fill="#fff"/>
+                            <circle cx="8" cy="2" r="0.6" fill="#fff"/>
+                            <circle cx="2" cy="5" r="0.6" fill="#fff"/>
+                            <circle cx="5" cy="5" r="0.6" fill="#fff"/>
+                            <circle cx="8" cy="5" r="0.6" fill="#fff"/>
+                            <circle cx="2" cy="8" r="0.6" fill="#fff"/>
+                            <circle cx="5" cy="8" r="0.6" fill="#fff"/>
+                            <circle cx="8" cy="8" r="0.6" fill="#fff"/>
+                          </svg>
+                        </span>
+                        American Culture Quiz
+                      </h3>
+                      <div className="space-y-6">
+                        {quiz.map((q, i) => {
+                          const selected = quizAnswers[i] ?? null;
+                          const checked = quizChecked[i] ?? false;
+                          const correctIdx = q.correctIndex ?? -1;
+                          const isCorrect = selected !== null && correctIdx === selected;
+                          return (
+                            <div key={i} className="border-b border-zinc-300 dark:border-zinc-600 pb-4 last:border-0">
+                              <p className="font-semibold mb-3 text-[17px] text-zinc-900 dark:text-zinc-100">
+                                {i + 1}. {q.question}
+                              </p>
+                              <div className="grid grid-cols-1 gap-2">
+                                {q.options?.map((opt, oidx) => {
+                                  const isSelected = selected === oidx;
+                                  const showCorrect = checked && oidx === correctIdx;
+                                  const showIncorrect = checked && isSelected && !isCorrect;
+                                  return (
+                                    <button
+                                      key={oidx}
+                                      type="button"
+                                      onClick={() => !checked && handleCheckAnswer(i, oidx)}
+                                      disabled={checked}
+                                      className={`text-left p-4 text-lg rounded-lg border-2 transition-colors ${
+                                        showCorrect
+                                          ? "bg-green-100 border-green-400 dark:bg-green-900/30"
+                                          : showIncorrect
+                                          ? "bg-red-100 border-red-400 dark:bg-red-900/30"
+                                          : isSelected && !checked
+                                          ? "bg-indigo-100 border-indigo-400 dark:bg-indigo-900/30"
+                                          : "border-zinc-300 dark:border-zinc-500 text-zinc-900 dark:text-zinc-100 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span>{opt}</span>
+                                        {showCorrect && <Check className="h-5 w-5 text-green-600" />}
+                                        {showIncorrect && <X className="h-5 w-5 text-red-600" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cultural Insight */}
+                  {"culturalInsight" in lesson && (
+                    <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 rounded-r-lg">
+                      <h3 className="font-bold text-amber-900 dark:text-amber-100 mb-1">
+                        💡 Cultural Insight
+                      </h3>
+                      <p className="text-[18px] text-amber-800 dark:text-amber-200">
+                        {lesson.culturalInsight as string}
+                      </p>
+                    </div>
+                  )}
 
                 </div>
               )}
