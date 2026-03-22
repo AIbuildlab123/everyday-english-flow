@@ -80,8 +80,8 @@ export function LandingPage() {
           <div className="w-full flex justify-center px-4">
             <div className="relative w-full max-w-xl aspect-video rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 shadow-lg">
               <YouTubeVideoFacade
-                videoId="JAvN0YQuve0"
-                thumbnailSrc="https://img.youtube.com/vi/JAvN0YQuve0/maxresdefault.jpg"
+                videoId="VxIC6_bRqjQ"
+                thumbnailSrc="https://img.youtube.com/vi/VxIC6_bRqjQ/maxresdefault.jpg"
               />
             </div>
           </div>
