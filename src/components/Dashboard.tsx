@@ -878,7 +878,7 @@ export function Dashboard({ user }: DashboardProps) {
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="text-4xl mb-4">🎓</div>
                   <p className="text-zinc-500 dark:text-zinc-400 max-w-xs text-[17px]">
-                    Pick a situation above and click &quot;Generate&quot; to create your 5-day trial lesson.
+                    Pick a situation above or type in your own and click &quot;Generate&quot; to create a lesson.
                   </p>
                 </div>
               )}
