@@ -1,0 +1,10 @@
+[{
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.everydayenglishflow.twa",
+      "sha256_cert_fingerprints": [
+        "78:F3:11:0C:02:7B:A2:79:3E:04:77:4D:43:03:00:8C:1A:93:8A:2C:25:F3:8C:7B:27:6F:E9:9D:68:0D:39:62"
+      ]
+    }
+  }]
