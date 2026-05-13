@@ -40,3 +40,10 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+// TWA / Play Store versioning — keep in sync with twa-manifest.json (appVersionCode / appVersionName).
+// Bubblewrap injects those into app/build.gradle when you run `bubblewrap update` or `bubblewrap build`.
+ext {
+    versionCode = 2
+    versionName = "0.1.1"
+}

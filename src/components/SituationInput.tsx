@@ -16,15 +16,17 @@ export function SituationInput({ value, onChange, placeholder }: SituationInputP
 
   return (
     <div className="space-y-2">
-      <label htmlFor="situation" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Situation
+      <label htmlFor="situation" className="block text-[17px] font-semibold text-zinc-800 dark:text-zinc-200">
+        Type your own situation to practice.
       </label>
       <div className="flex gap-2">
         <textarea
           id="situation"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder ?? "Describe a situation (e.g. asking for a day off, ordering at a restaurant)…"}
+          placeholder={
+            placeholder ?? "e.g. Talking to a neighbor about a loud dog..."
+          }
           rows={3}
           className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-[16px] text-zinc-900 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder-zinc-400 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
         />
@@ -36,6 +38,9 @@ export function SituationInput({ value, onChange, placeholder }: SituationInputP
           Need an Idea?
         </button>
       </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Type any scenario you want to practice!
+      </p>
     </div>
   );
 }

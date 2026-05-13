@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import type { Lesson } from "@/types/lesson";
+
+export const dynamic = "force-dynamic";
 
 const LESSON_JSON_SCHEMA = `
 Return ONLY a single valid JSON object (no markdown, no code fence) with this exact shape:
@@ -109,11 +112,18 @@ function normalizeLesson(parsed: Lesson): Lesson | null {
     suggestedQuestions: suggestedQuestions.filter((s) => typeof s === "string").slice(0, 5),
     conversationQuestions: conversationQuestions.filter((s) => typeof s === "string").slice(0, 5),
     culturalInsight,
-    quiz: quiz.slice(0, 3).map((q) => ({
-      question: typeof q?.question === "string" ? q.question : "",
-      options: Array.isArray(q?.options) ? q.options.map(String) : [],
-      correctIndex: typeof q?.correctIndex === "number" ? Math.max(0, Math.min(3, q.correctIndex)) : 0,
-    })),
+    quiz: quiz.slice(0, 3).map((q) => {
+      const rawOpts = Array.isArray(q?.options) ? q.options.map(String) : [];
+      const ci =
+        typeof q?.correctIndex === "number" ? Math.max(0, Math.min(3, q.correctIndex)) : 0;
+      const shuffled =
+        rawOpts.length > 0 ? shuffleMcqOptions(rawOpts, ci) : { options: rawOpts, correctIndex: 0 };
+      return {
+        question: typeof q?.question === "string" ? q.question : "",
+        options: shuffled.options,
+        correctIndex: shuffled.correctIndex,
+      };
+    }),
   };
 }
 
@@ -198,7 +208,14 @@ Generate the JSON now:`;
       .update({ credits: profile.credits - 1 })
       .eq("id", session.user.id);
 
-    return NextResponse.json({ lesson });
+    return NextResponse.json(
+      { lesson },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        },
+      }
+    );
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

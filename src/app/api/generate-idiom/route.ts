@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { IDIOM_BANK } from "@/data/american-idioms";
+import { shuffleMcqOptions } from "@/lib/quiz-shuffle";
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GOOGLE_AI_API_KEY;
+export const dynamic = "force-dynamic";
 
-if (!apiKey) {
-  throw new Error("Missing Gemini API Key");
+function pickDistinctIndices(exclude: number, count: number, max: number): number[] {
+  const out: number[] = [];
+  let guard = 0;
+  while (out.length < count && guard++ < 500) {
+    const j = Math.floor(Math.random() * max);
+    if (j !== exclude && !out.includes(j)) out.push(j);
+  }
+  return out;
 }
-
-const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function POST(request: Request) {
   try {
@@ -21,66 +26,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Get seed from request body to ensure different idioms each time
-    const body = await request.json().catch(() => ({}));
-    const seed = body.seed || Math.random().toString();
+    // Optional: seed from client for cache-busting (no AI call).
+    await request.json().catch(() => ({}));
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.9, // Higher temperature for more creativity and variety
-      },
-    });
-
-    const prompt = `Select a RANDOM American idiom from a pool of 500+ common expressions. Do NOT repeat the most common ones like "Piece of cake", "Break the ice", "Hit the nail on the head", or "Once in a blue moon". Choose something different and less common every time.
-
-Generate a multiple-choice quiz question about this idiom.
-
-Return ONLY valid JSON in this exact format:
-{
-  "phrase": "The idiom itself",
-  "meaning": "Clear and concise meaning",
-  "example_sentence": "A natural sentence using the idiom in context.",
-  "question": "What does the idiom '[IDIOM]' mean?",
-  "options": [
-    "Correct meaning",
-    "Wrong option 1",
-    "Wrong option 2",
-    "Wrong option 3"
-  ],
-  "correctIndex": 0
-}
-
-Seed: ${seed}
-Generate a NEW and DIFFERENT idiom question now:`;
-
-    const result = await model.generateContent(prompt);
-    const responseText = result?.response?.text?.();
-    
-    if (!responseText) {
-      return NextResponse.json({ error: "AI did not return content" }, { status: 502 });
+    if (IDIOM_BANK.length < 4) {
+      return NextResponse.json({ error: "Idiom bank not configured" }, { status: 500 });
     }
 
-    // Try to extract JSON from the response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Invalid response format" }, { status: 502 });
-    }
+    const mainIdx = Math.floor(Math.random() * IDIOM_BANK.length);
+    const main = IDIOM_BANK[mainIdx]!;
+    const wrongIdxs = pickDistinctIndices(mainIdx, 3, IDIOM_BANK.length);
+    const wrongDefs = wrongIdxs.map((i) => IDIOM_BANK[i]!.definition);
 
-    const idiomData = JSON.parse(jsonMatch[0]);
-    
-    if (
-      !idiomData.question ||
-      !Array.isArray(idiomData.options) ||
-      typeof idiomData.correctIndex !== "number" ||
-      !idiomData.phrase ||
-      !idiomData.meaning ||
-      !idiomData.example_sentence
-    ) {
-      return NextResponse.json({ error: "Invalid idiom data structure" }, { status: 502 });
-    }
+    const baseOptions = [main.definition, ...wrongDefs];
+    const shuffled = shuffleMcqOptions(baseOptions, 0);
 
-    return NextResponse.json({ idiom: idiomData });
+    const idiom = {
+      phrase: main.phrase,
+      meaning: main.definition,
+      example_sentence: main.example_sentence,
+      question: `What does the idiom “${main.phrase}” mean?`,
+      options: shuffled.options,
+      correctIndex: shuffled.correctIndex,
+    };
+
+    return NextResponse.json(
+      { idiom },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("IDIOM GENERATION ERROR:", error);

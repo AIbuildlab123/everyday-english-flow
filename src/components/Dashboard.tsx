@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import type { Level, Category } from "@/types/lesson";
 import { createClient } from "@/lib/supabase/client";
 import { getTrialInfo, isTrialExpired as checkTrialExpired } from "@/lib/trial";
+import { shuffleLessonRecord, shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import { InstructionsBanner } from "@/components/InstructionsBanner";
 import { LevelButtons } from "@/components/LevelButtons";
 import { CategoryButtons } from "@/components/CategoryButtons";
@@ -19,6 +20,12 @@ interface DashboardProps {
   user: User;
 }
 
+/** Completed idiom challenges allowed per UTC day before blocking the next start. */
+const IDIOM_DAILY_LIMIT = 5;
+
+function utcDateKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function Dashboard({ user }: DashboardProps) {
   // --- Profile State ---
@@ -88,15 +95,13 @@ export function Dashboard({ user }: DashboardProps) {
     fetchProfile();
   }, [user.id, supabase]);
 
-  // Fetch daily idiom count
+  // Fetch daily idiom count (UTC day; new key so old localStorage values don't skew limits)
   useEffect(() => {
     async function fetchIdiomCount() {
-      // Check if we have a stored count for today
-      const today = new Date().toDateString();
-      const stored = localStorage.getItem(`idiomCount_${user.id}_${today}`);
-      if (stored) {
-        setDailyIdiomCount(parseInt(stored, 10));
-      }
+      const todayKey = utcDateKey();
+      const stored = localStorage.getItem(`idiomUsesUtc_${user.id}_${todayKey}`);
+      const n = stored ? parseInt(stored, 10) : 0;
+      setDailyIdiomCount(Number.isFinite(n) && n >= 0 ? n : 0);
     }
     fetchIdiomCount();
   }, [user.id]);
@@ -109,7 +114,7 @@ export function Dashboard({ user }: DashboardProps) {
     if (savedLessonStr) {
       try {
         const savedLesson = JSON.parse(savedLessonStr);
-        setLesson(savedLesson);
+        setLesson(shuffleLessonRecord(savedLesson));
         setIsLessonSaved(true);
         sessionStorage.removeItem("loadSavedLesson");
       } catch {
@@ -117,6 +122,11 @@ export function Dashboard({ user }: DashboardProps) {
       }
     }
   }, []);
+
+  useEffect(() => {
+    setQuizAnswers({});
+    setQuizChecked({});
+  }, [lesson]);
 
   // 2. 5-Day Trial Logic — UTC only (created_at from Supabase is UTC; current time via Date.now()).
   const isTrialExpired = checkTrialExpired(user.created_at ?? "", isPremium);
@@ -147,23 +157,9 @@ export function Dashboard({ user }: DashboardProps) {
     setIsGenerating(true);
     setLessonError(null);
     try {
-      // Check cache first
-      const { data: cached } = await supabase
-        .from("lessons")
-        .select("content")
-        .eq("user_id", user.id)
-        .eq("topic", situation || "General everyday situation")
-        .single();
-
-      if (cached?.content) {
-        const parsed = JSON.parse(cached.content);
-        setLesson(parsed);
-        setIsGenerating(false);
-        return;
-      }
-
       const res = await fetch("/api/generate", {
         method: "POST",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           level: level ?? "beginner",
@@ -182,8 +178,8 @@ export function Dashboard({ user }: DashboardProps) {
       }
 
       const lessonData = data?.lesson ?? data;
-      if (lessonData) {
-        setLesson(lessonData);
+      if (lessonData && typeof lessonData === "object") {
+        setLesson(shuffleLessonRecord(lessonData as Record<string, unknown>));
         setIsLessonSaved(false); // Reset saved state for new lesson
         setSaveStatus(null);
       }
@@ -282,17 +278,18 @@ export function Dashboard({ user }: DashboardProps) {
   }
 
   async function handleGenerateIdiom() {
-    if (dailyIdiomCount >= 5) {
+    // Block starting the 6th challenge after 5 successful completions today (UTC).
+    if (dailyIdiomCount >= IDIOM_DAILY_LIMIT) {
       return;
     }
     setIsLoadingIdiom(true);
     setIdiomAnswer(null);
     setIdiomChecked(false);
     try {
-      // Add random seed/timestamp to prevent caching
       const seed = Math.random().toString(36).substring(7) + Date.now();
       const res = await fetch("/api/generate-idiom", {
         method: "POST",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seed }),
       });
@@ -303,12 +300,26 @@ export function Dashboard({ user }: DashboardProps) {
         return;
       }
       if (data.idiom) {
-        setIdiomQuestion(data.idiom);
-        // Increment daily count
-        const today = new Date().toDateString();
+        const raw = data.idiom as {
+          phrase: string;
+          meaning: string;
+          example_sentence: string;
+          question: string;
+          options: string[];
+          correctIndex: number;
+        };
+        const opts = Array.isArray(raw.options) ? [...raw.options.map(String)] : [];
+        const ci = typeof raw.correctIndex === "number" ? raw.correctIndex : 0;
+        const shuffled = opts.length > 0 ? shuffleMcqOptions(opts, ci) : { options: opts, correctIndex: 0 };
+        setIdiomQuestion({
+          ...raw,
+          options: shuffled.options,
+          correctIndex: shuffled.correctIndex,
+        });
+        const todayKey = utcDateKey();
         const newCount = dailyIdiomCount + 1;
         setDailyIdiomCount(newCount);
-        localStorage.setItem(`idiomCount_${user.id}_${today}`, newCount.toString());
+        localStorage.setItem(`idiomUsesUtc_${user.id}_${todayKey}`, newCount.toString());
       }
     } catch (err) {
       console.error("Idiom generation error:", err);
@@ -472,6 +483,14 @@ export function Dashboard({ user }: DashboardProps) {
               selectedCategory={selectedCategory}
             />
           </section>
+
+          <div className="flex shrink-0 items-center gap-3 py-1" role="separator" aria-label="OR">
+            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-600" />
+            <span className="shrink-0 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              OR
+            </span>
+            <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-600" />
+          </div>
 
           <section className="shrink-0">
             <SituationInput value={situation} onChange={setSituation} />
@@ -703,13 +722,11 @@ export function Dashboard({ user }: DashboardProps) {
                       <h3 className="text-[20px] font-bold tracking-tight text-purple-900 dark:text-purple-100">
                         🎯 Test Your Knowledge of Common American Idioms
                       </h3>
-                      {dailyIdiomCount > 0 && (
-                        <span className="text-xs text-purple-700 dark:text-purple-300">
-                          {dailyIdiomCount} / 5 today
-                        </span>
-                      )}
+                      <span className="text-xs text-purple-700 dark:text-purple-300">
+                        {dailyIdiomCount} / {IDIOM_DAILY_LIMIT} today (UTC)
+                      </span>
                     </div>
-                    {dailyIdiomCount >= 5 ? (
+                    {dailyIdiomCount >= IDIOM_DAILY_LIMIT ? (
                       <p className="text-purple-800 dark:text-purple-200 font-medium">
                         Daily Idiom limit reached! Come back tomorrow for more.
                       </p>
