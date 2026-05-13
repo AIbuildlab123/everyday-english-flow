@@ -278,8 +278,9 @@ export function Dashboard({ user }: DashboardProps) {
   }
 
   async function handleGenerateIdiom() {
-    // Block starting the 6th challenge after 5 successful completions today (UTC).
-    if (dailyIdiomCount >= IDIOM_DAILY_LIMIT) {
+    const usageCount = dailyIdiomCount;
+    // Block the 6th start only: allow 5 successful generations (usageCount 0..4), then block when usageCount >= 5.
+    if (usageCount >= IDIOM_DAILY_LIMIT) {
       return;
     }
     setIsLoadingIdiom(true);
@@ -726,20 +727,7 @@ export function Dashboard({ user }: DashboardProps) {
                         {dailyIdiomCount} / {IDIOM_DAILY_LIMIT} today (UTC)
                       </span>
                     </div>
-                    {dailyIdiomCount >= IDIOM_DAILY_LIMIT ? (
-                      <p className="text-purple-800 dark:text-purple-200 font-medium">
-                        Daily Idiom limit reached! Come back tomorrow for more.
-                      </p>
-                    ) : !idiomQuestion ? (
-                      <button
-                        type="button"
-                        onClick={handleGenerateIdiom}
-                        disabled={isLoadingIdiom}
-                        className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-3 text-white font-bold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
-                      >
-                        {isLoadingIdiom ? "Generating Idiom..." : "Start Idiom Challenge"}
-                      </button>
-                    ) : (
+                    {idiomQuestion ? (
                       <div className="space-y-4">
                         <p className="font-medium text-purple-900 dark:text-purple-100 text-[17px]">
                           {idiomQuestion.question}
@@ -800,6 +788,19 @@ export function Dashboard({ user }: DashboardProps) {
                           </button>
                         )}
                       </div>
+                    ) : dailyIdiomCount >= IDIOM_DAILY_LIMIT ? (
+                      <p className="text-purple-800 dark:text-purple-200 font-medium">
+                        Daily Idiom limit reached! Come back tomorrow for more.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGenerateIdiom}
+                        disabled={isLoadingIdiom}
+                        className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-3 text-white font-bold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                      >
+                        {isLoadingIdiom ? "Generating Idiom..." : "Start Idiom Challenge"}
+                      </button>
                     )}
                   </div>
 
