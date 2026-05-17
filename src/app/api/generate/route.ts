@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  ensureDailyCreditsReset,
+  deductDailyCredit,
+  PROFILE_CREDIT_SELECT,
+  type ProfileCreditRow,
+} from "@/lib/daily-credits";
 import { shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import type { Lesson } from "@/types/lesson";
 
@@ -144,18 +150,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Fetch Profile
-    type Profile = {
-      created_at: string;
-      credits: number;
-      is_premium: boolean;
-    };
-
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("created_at, credits, is_premium")
+      .select(PROFILE_CREDIT_SELECT)
       .eq("id", session.user.id)
-      .single<Profile>();
+      .single<ProfileCreditRow>();
 
     if (profileError || !profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
@@ -168,8 +167,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "TRIAL_EXPIRED" }, { status: 403 });
     }
 
-    // Credit check (trial-expired users already rejected above)
-    if (profile.credits <= 0) {
+    // Reset dailyGenerations + lastReset if 24h have passed, then check balance.
+    const { credits: balanceAfterReset, error: resetError } = await ensureDailyCreditsReset(
+      supabase,
+      session.user.id,
+      profile
+    );
+
+    if (resetError) {
+      console.error("[generate] daily credit reset error:", resetError);
+    }
+
+    if (balanceAfterReset <= 0) {
       return NextResponse.json({ error: "OUT_OF_CREDITS" }, { status: 403 });
     }
 
@@ -202,11 +211,14 @@ Generate the JSON now:`;
       return NextResponse.json({ error: "AI Format Error" }, { status: 502 });
     }
 
-    // Deduct Credit
-    await supabase
-      .from("profiles")
-      .update({ credits: profile.credits - 1 })
-      .eq("id", session.user.id);
+    const { error: deductError } = await deductDailyCredit(
+      supabase,
+      session.user.id,
+      balanceAfterReset
+    );
+    if (deductError) {
+      console.error("[generate] credit deduct error:", deductError);
+    }
 
     return NextResponse.json(
       { lesson },

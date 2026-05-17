@@ -76,19 +76,27 @@ export function Dashboard({ user }: DashboardProps) {
   const supabase = createClient();
   const router = useRouter();
 
-  // 1. Fetch profile (credits are reset by pg_cron at midnight UTC)
+  // 1. Fetch profile (daily reset runs on the server when generating a lesson)
   useEffect(() => {
     async function fetchProfile() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("is_premium, credits, created_at")
+        .select("is_premium, credits, dailyGenerations, daily_generations, created_at")
         .eq("id", user.id)
         .single();
 
       if (!error && data) {
-        const premium = (data as { is_premium: boolean }).is_premium ?? false;
+        const row = data as {
+          is_premium: boolean;
+          credits?: number;
+          dailyGenerations?: number;
+          daily_generations?: number;
+        };
+        const premium = row.is_premium ?? false;
         setIsPremium(premium);
-        setCredits(data.credits ?? 3);
+        const remaining =
+          row.dailyGenerations ?? row.daily_generations ?? row.credits ?? 3;
+        setCredits(remaining);
       }
       setIsLoadingProfile(false);
     }
