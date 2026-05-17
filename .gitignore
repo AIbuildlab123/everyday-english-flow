@@ -20,6 +20,10 @@
 # production
 /build
 
+# Bubblewrap may recreate app/ at repo root and break Next.js routing (use android-twa/)
+/app/
+/android-twa/build/
+
 # misc
 .DS_Store
 *.pem
