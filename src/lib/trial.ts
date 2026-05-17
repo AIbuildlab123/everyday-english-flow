@@ -4,6 +4,24 @@ export const TRIAL_DAYS = 5;
 /** Daily lesson credits for trial users */
 export const TRIAL_DAILY_CREDITS = 3;
 
+/** Row shape from users and/or profiles tables. */
+export type PremiumFlagRow = {
+  is_premium?: unknown;
+  isPremium?: unknown;
+};
+
+/** Normalize Supabase boolean (true, "true", 1, etc.). */
+export function resolveIsPremium(row: PremiumFlagRow | null | undefined): boolean {
+  if (!row) return false;
+  const value = row.isPremium ?? row.is_premium;
+  if (value === true || value === 1) return true;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+  }
+  return false;
+}
+
 export interface TrialInfo {
   /** Whether the trial has expired (more than TRIAL_DAYS since created_at) */
   isExpired: boolean;
@@ -25,11 +43,20 @@ export function getTrialDaysElapsed(createdAtIso: string): number {
 }
 
 /**
- * Trial is over when (Current UTC Time) - (created_at UTC) > 5 days and user is not premium.
+ * Trial is over only for non-premium accounts:
+ * isExpired = !isPremium && daysSinceCreation > TRIAL_DAYS
  */
 export function isTrialExpired(createdAtIso: string, isPremium: boolean): boolean {
   if (isPremium) return false;
   return getTrialDaysElapsed(createdAtIso) > TRIAL_DAYS;
+}
+
+/** Same rule as isTrialExpired — explicit for UI and API guards. */
+export function isTrialExpiredForUser(
+  createdAtIso: string,
+  isPremium: boolean
+): boolean {
+  return !isPremium && getTrialDaysElapsed(createdAtIso) > TRIAL_DAYS;
 }
 
 /**

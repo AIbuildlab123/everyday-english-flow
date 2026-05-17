@@ -13,6 +13,7 @@ import {
   type UserCreditRow,
 } from "@/lib/daily-credits";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isTrialExpired } from "@/lib/trial";
 import { shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import type { Lesson } from "@/types/lesson";
 
@@ -175,13 +176,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const premium = isPremiumUser(userRow);
+    let premium = isPremiumUser(userRow);
+
+    // Premium may live on profiles while credits live on users — honor either table.
+    if (!premium) {
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("is_premium, isPremium")
+        .eq("id", userId)
+        .maybeSingle();
+      if (profileRow) {
+        premium = isPremiumUser(profileRow);
+      }
+    }
+
     const dailyLimit = getDailyCreditLimit(premium);
 
-    // 5-Day Trial — UTC only: (Current UTC Time) - (created_at UTC).
-    const createdMs = new Date(userRow.created_at).getTime();
-    const diffDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
-    if (!premium && diffDays > 5) {
+    // isExpired = !isPremium && daysSinceCreation > TRIAL_DAYS (premium always bypasses).
+    if (isTrialExpired(userRow.created_at, premium)) {
       return NextResponse.json({ error: "TRIAL_EXPIRED" }, { status: 403 });
     }
 

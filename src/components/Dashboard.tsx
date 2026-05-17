@@ -7,7 +7,11 @@ import type { User } from "@supabase/supabase-js";
 import type { Level, Category } from "@/types/lesson";
 import { createClient } from "@/lib/supabase/client";
 import { USERS_TABLE } from "@/lib/daily-credits";
-import { getTrialInfo, isTrialExpired as checkTrialExpired } from "@/lib/trial";
+import {
+  getTrialInfo,
+  isTrialExpiredForUser,
+  resolveIsPremium,
+} from "@/lib/trial";
 import { shuffleLessonRecord, shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import { InstructionsBanner } from "@/components/InstructionsBanner";
 import { LevelButtons } from "@/components/LevelButtons";
@@ -32,6 +36,7 @@ export function Dashboard({ user }: DashboardProps) {
   // --- Profile State ---
   const [isPremium, setIsPremium] = useState(false);
   const [credits, setCredits] = useState(3);
+  const [accountCreatedAt, setAccountCreatedAt] = useState<string>(user.created_at ?? "");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isManagingSubscription, setIsManagingSubscription] = useState(false);
 
@@ -77,29 +82,53 @@ export function Dashboard({ user }: DashboardProps) {
   const supabase = createClient();
   const router = useRouter();
 
-  // 1. Fetch profile (daily reset runs on the server when generating a lesson)
+  // 1. Fetch premium + credits (users table, with profiles fallback for isPremium / is_premium)
   useEffect(() => {
     async function fetchProfile() {
-      const { data, error } = await supabase
-        .from(USERS_TABLE)
-        .select("is_premium, isPremium, dailyGenerations, created_at")
-        .eq("id", user.id)
-        .single();
+      const [usersRes, profilesRes] = await Promise.all([
+        supabase
+          .from(USERS_TABLE)
+          .select("is_premium, isPremium, dailyGenerations, created_at")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("is_premium, isPremium, created_at")
+          .eq("id", user.id)
+          .maybeSingle(),
+      ]);
 
-      if (!error && data) {
-        const row = data as {
-          is_premium?: boolean;
-          isPremium?: boolean;
-          dailyGenerations?: number;
-        };
-        const premium = Boolean(row.is_premium ?? row.isPremium);
-        setIsPremium(premium);
-        setCredits(row.dailyGenerations ?? (premium ? 10 : 3));
-      }
+      const usersRow = usersRes.data as {
+        is_premium?: unknown;
+        isPremium?: unknown;
+        dailyGenerations?: number;
+        created_at?: string;
+      } | null;
+      const profilesRow = profilesRes.data as {
+        is_premium?: unknown;
+        isPremium?: unknown;
+        created_at?: string;
+      } | null;
+
+      const premium =
+        resolveIsPremium(usersRow) || resolveIsPremium(profilesRow);
+      setIsPremium(premium);
+
+      const createdAt =
+        usersRow?.created_at ??
+        profilesRow?.created_at ??
+        user.created_at ??
+        "";
+      setAccountCreatedAt(createdAt);
+
+      const daily =
+        usersRow?.dailyGenerations ?? (premium ? 10 : 3);
+      setCredits(daily);
+
       setIsLoadingProfile(false);
     }
     fetchProfile();
-  }, [user.id, supabase]);
+  }, [user.id, user.created_at, supabase]);
 
   // Fetch daily idiom count (UTC day; new key so old localStorage values don't skew limits)
   useEffect(() => {
@@ -134,26 +163,29 @@ export function Dashboard({ user }: DashboardProps) {
     setQuizChecked({});
   }, [lesson]);
 
-  // 2. 5-Day Trial Logic — UTC only (created_at from Supabase is UTC; current time via Date.now()).
-  const isTrialExpired = checkTrialExpired(user.created_at ?? "", isPremium);
-  const trialInfo = getTrialInfo(user.created_at ?? "", isPremium);
+  // 2. Trial: isExpired = !isPremium && daysSinceCreation > trialDays (premium bypasses entirely).
+  const isTrialExpired =
+    !isLoadingProfile &&
+    isTrialExpiredForUser(accountCreatedAt, isPremium);
+  const trialInfo = getTrialInfo(accountCreatedAt, isPremium);
   const daysLeft = trialInfo.daysLeft;
-  // Kill switch: if trial expired, treat credits as 0 regardless of DB.
-  const effectiveCredits = isTrialExpired ? 0 : credits;
+  const effectiveCredits = isPremium ? credits : isTrialExpired ? 0 : credits;
 
   // 3. Button Logic
   const noLevelSelected = level === null;
+  const outOfDailyCredits = credits <= 0;
   const generateDisabled =
+    isLoadingProfile ||
     noLevelSelected ||
-    isTrialExpired ||
     isGenerating ||
-    (!isPremium && effectiveCredits <= 0);
+    (!isPremium && isTrialExpired) ||
+    outOfDailyCredits;
 
   const dailyCreditLimit = isPremium ? 10 : 3;
 
-  const generateMessage = isTrialExpired
+  const generateMessage = !isPremium && isTrialExpired
     ? "Trial expired. Please upgrade to continue."
-    : effectiveCredits <= 0
+    : outOfDailyCredits
     ? `Daily limit reached. Come back tomorrow! (${dailyCreditLimit} lessons/day)`
     : noLevelSelected
     ? "Please select a level to begin."
@@ -520,7 +552,7 @@ export function Dashboard({ user }: DashboardProps) {
             {generateMessage && (
               <div className="mt-3 flex flex-col gap-2">
                 <p className="text-sm font-semibold text-red-500">{generateMessage}</p>
-                {isTrialExpired && (
+                {!isPremium && isTrialExpired && (
                   <Link
                     href="/upgrade"
                     className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2 text-white font-bold text-center block"
@@ -531,7 +563,7 @@ export function Dashboard({ user }: DashboardProps) {
               </div>
             )}
 
-            {!isTrialExpired && (
+            {(isPremium || !isTrialExpired) && (
               <p className="mt-2 text-xs text-slate-500">
                 Credits remaining today: <span className="font-bold text-indigo-600">{effectiveCredits} / {dailyCreditLimit}</span>
               </p>

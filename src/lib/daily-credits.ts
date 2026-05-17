@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { TRIAL_DAILY_CREDITS } from "@/lib/trial";
+import { resolveIsPremium, TRIAL_DAILY_CREDITS, type PremiumFlagRow } from "@/lib/trial";
 
 /** Table that stores dailyGenerations + lastReset (per your Supabase schema). */
 export const USERS_TABLE = "users";
@@ -23,8 +23,8 @@ export function getDailyCreditLimit(isPremium: boolean): number {
   return isPremium ? PREMIUM_DAILY_CREDITS : TRIAL_DAILY_CREDITS;
 }
 
-export function isPremiumUser(row: UserCreditRow): boolean {
-  return Boolean(row.is_premium ?? row.isPremium);
+export function isPremiumUser(row: UserCreditRow | PremiumFlagRow): boolean {
+  return resolveIsPremium(row);
 }
 
 /** True when at least 24 hours have passed since lastReset (or it was never set). */
