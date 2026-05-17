@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { Level, Category } from "@/types/lesson";
 import { createClient } from "@/lib/supabase/client";
+import { USERS_TABLE } from "@/lib/daily-credits";
 import { getTrialInfo, isTrialExpired as checkTrialExpired } from "@/lib/trial";
 import { shuffleLessonRecord, shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import { InstructionsBanner } from "@/components/InstructionsBanner";
@@ -80,23 +81,20 @@ export function Dashboard({ user }: DashboardProps) {
   useEffect(() => {
     async function fetchProfile() {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("is_premium, credits, dailyGenerations, daily_generations, created_at")
+        .from(USERS_TABLE)
+        .select("is_premium, isPremium, dailyGenerations, created_at")
         .eq("id", user.id)
         .single();
 
       if (!error && data) {
         const row = data as {
-          is_premium: boolean;
-          credits?: number;
+          is_premium?: boolean;
+          isPremium?: boolean;
           dailyGenerations?: number;
-          daily_generations?: number;
         };
-        const premium = row.is_premium ?? false;
+        const premium = Boolean(row.is_premium ?? row.isPremium);
         setIsPremium(premium);
-        const remaining =
-          row.dailyGenerations ?? row.daily_generations ?? row.credits ?? 3;
-        setCredits(remaining);
+        setCredits(row.dailyGenerations ?? (premium ? 10 : 3));
       }
       setIsLoadingProfile(false);
     }

@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
-  ensureDailyCreditsReset,
-  deductDailyCredit,
-  PROFILE_CREDIT_SELECT,
-  type ProfileCreditRow,
+  USERS_TABLE,
+  USER_CREDIT_SELECT,
+  deductUserDailyCredit,
+  getDailyCreditLimit,
+  getRemainingCredits,
+  isPremiumUser,
+  resetUserDailyCredits,
+  shouldResetDailyCredits,
+  type UserCreditRow,
 } from "@/lib/daily-credits";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import type { Lesson } from "@/types/lesson";
 
@@ -150,35 +156,61 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select(PROFILE_CREDIT_SELECT)
-      .eq("id", session.user.id)
-      .single<ProfileCreditRow>();
+    const userId = session.user.id;
 
-    if (profileError || !profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    // Service role bypasses RLS so lastReset + dailyGenerations always persist (if key is set).
+    const db = createAdminSupabaseClient() ?? supabase;
+
+    const { data: userRow, error: userError } = await supabase
+      .from(USERS_TABLE)
+      .select(USER_CREDIT_SELECT)
+      .eq("id", userId)
+      .single<UserCreditRow>();
+
+    if (userError || !userRow) {
+      console.error("[generate] users fetch failed:", userError?.message);
+      return NextResponse.json(
+        { error: "User not found", details: userError?.message },
+        { status: 404 }
+      );
     }
 
-    // 5-Day Trial — UTC only: (Current UTC Time) - (created_at UTC). No local time APIs.
-    const createdMs = new Date(profile.created_at).getTime();
+    const premium = isPremiumUser(userRow);
+    const dailyLimit = getDailyCreditLimit(premium);
+
+    // 5-Day Trial — UTC only: (Current UTC Time) - (created_at UTC).
+    const createdMs = new Date(userRow.created_at).getTime();
     const diffDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
-    if (!profile.is_premium && diffDays > 5) {
+    if (!premium && diffDays > 5) {
       return NextResponse.json({ error: "TRIAL_EXPIRED" }, { status: 403 });
     }
 
-    // Reset dailyGenerations + lastReset if 24h have passed, then check balance.
-    const { credits: balanceAfterReset, error: resetError } = await ensureDailyCreditsReset(
-      supabase,
-      session.user.id,
-      profile
-    );
+    let balance = getRemainingCredits(userRow, premium);
 
-    if (resetError) {
-      console.error("[generate] daily credit reset error:", resetError);
+    // --- 24-hour reset MUST run before any deduction ---
+    if (shouldResetDailyCredits(userRow.lastReset)) {
+      const resetResult = await resetUserDailyCredits(db, userId, dailyLimit);
+
+      if (resetResult.error) {
+        return NextResponse.json(
+          {
+            error: "CREDIT_RESET_FAILED",
+            message: "Could not reset daily credits. Check RLS policies or SUPABASE_SERVICE_ROLE_KEY.",
+            details: resetResult.error,
+          },
+          { status: 500 }
+        );
+      }
+
+      balance = resetResult.dailyGenerations;
+      console.log("[generate] daily credits reset:", {
+        userId,
+        dailyGenerations: resetResult.dailyGenerations,
+        lastReset: resetResult.lastReset,
+      });
     }
 
-    if (balanceAfterReset <= 0) {
+    if (balance <= 0) {
       return NextResponse.json({ error: "OUT_OF_CREDITS" }, { status: 403 });
     }
 
@@ -211,13 +243,17 @@ Generate the JSON now:`;
       return NextResponse.json({ error: "AI Format Error" }, { status: 502 });
     }
 
-    const { error: deductError } = await deductDailyCredit(
-      supabase,
-      session.user.id,
-      balanceAfterReset
-    );
-    if (deductError) {
-      console.error("[generate] credit deduct error:", deductError);
+    const deductResult = await deductUserDailyCredit(db, userId, balance);
+    if (deductResult.error) {
+      console.error("[generate] credit deduct error:", deductResult.error);
+      return NextResponse.json(
+        {
+          error: "CREDIT_DEDUCT_FAILED",
+          message: "Lesson was generated but credit could not be saved.",
+          details: deductResult.error,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(
