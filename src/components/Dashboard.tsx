@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { Level, Category } from "@/types/lesson";
 import { createClient } from "@/lib/supabase/client";
-import { USERS_TABLE } from "@/lib/daily-credits";
+import { PROFILES_TABLE } from "@/lib/daily-credits";
 import {
   getTrialInfo,
   isTrialExpiredForUser,
@@ -82,48 +82,37 @@ export function Dashboard({ user }: DashboardProps) {
   const supabase = createClient();
   const router = useRouter();
 
-  // 1. Fetch premium + credits (users table, with profiles fallback for isPremium / is_premium)
+  // 1. Load public.profiles (is_premium, credits, last_reset_date, created_at)
   useEffect(() => {
     async function fetchProfile() {
-      const [usersRes, profilesRes] = await Promise.all([
-        supabase
-          .from(USERS_TABLE)
-          .select("is_premium, isPremium, dailyGenerations, created_at")
-          .eq("id", user.id)
-          .maybeSingle(),
-        supabase
-          .from("profiles")
-          .select("is_premium, isPremium, created_at")
-          .eq("id", user.id)
-          .maybeSingle(),
-      ]);
+      const { data, error } = await supabase
+        .from(PROFILES_TABLE)
+        .select("is_premium, credits, created_at, last_reset_date")
+        .eq("id", user.id)
+        .single();
 
-      const usersRow = usersRes.data as {
-        is_premium?: unknown;
-        isPremium?: unknown;
-        dailyGenerations?: number;
-        created_at?: string;
-      } | null;
-      const profilesRow = profilesRes.data as {
-        is_premium?: unknown;
-        isPremium?: unknown;
-        created_at?: string;
-      } | null;
+      if (error) {
+        console.error("[Dashboard] profiles fetch failed:", error.message);
+      }
 
-      const premium =
-        resolveIsPremium(usersRow) || resolveIsPremium(profilesRow);
-      setIsPremium(premium);
-
-      const createdAt =
-        usersRow?.created_at ??
-        profilesRow?.created_at ??
-        user.created_at ??
-        "";
-      setAccountCreatedAt(createdAt);
-
-      const daily =
-        usersRow?.dailyGenerations ?? (premium ? 10 : 3);
-      setCredits(daily);
+      if (data) {
+        const row = data as {
+          is_premium?: unknown;
+          credits?: number;
+          created_at?: string;
+          last_reset_date?: string;
+        };
+        const premium = resolveIsPremium(row);
+        setIsPremium(premium);
+        setAccountCreatedAt(row.created_at ?? user.created_at ?? "");
+        setCredits(
+          typeof row.credits === "number"
+            ? row.credits
+            : premium
+              ? 10
+              : 3
+        );
+      }
 
       setIsLoadingProfile(false);
     }
