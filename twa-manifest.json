@@ -21,8 +21,8 @@
     "password": "morefree123",
     "keyPassword": "morefree123"
   },
-  "appVersionName": "0.1.1",
-  "appVersionCode": 2,
+  "appVersionName": "version 0.1.1",
+  "appVersionCode": 3,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://www.everydayenglishflow.com/manifest.json",
@@ -44,5 +44,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "0.1.1"
+  "appVersion": "version 0.1.1"
 }
