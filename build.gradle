@@ -40,3 +40,9 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+// Keep in sync with twa-manifest.json (appVersionCode / appVersionName).
+ext {
+    versionCode = 4
+    versionName = "0.1.2"
+}
