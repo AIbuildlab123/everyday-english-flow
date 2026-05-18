@@ -1,3 +1,1 @@
-// Android TWA module (renamed from app/ so Next.js can use src/app/ for the web app)
 include ':app'
-project(':app').projectDir = file('android-twa')
