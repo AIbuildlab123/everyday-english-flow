@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/hooks/useSession";
+import { useIsAndroidApp } from "@/hooks/useIsAndroidApp";
+import { AndroidUpgradeNotice } from "@/components/AndroidUpgradeNotice";
 import { Check } from "lucide-react";
 
 export default function UpgradePage() {
@@ -11,6 +13,7 @@ export default function UpgradePage() {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const { isAndroidApp, isReady: deviceReady } = useIsAndroidApp();
   const supabase = createClient();
 
   useEffect(() => {
@@ -110,25 +113,36 @@ export default function UpgradePage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleUpgrade}
-              disabled={isProcessing}
-              className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-lg font-bold text-white transition-colors hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
-            >
-              {isProcessing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Processing Secure Payment...
-                </span>
-              ) : (
-                "Start Premium"
-              )}
-            </button>
+            {!deviceReady ? (
+              <div
+                aria-hidden
+                className="h-12 w-full animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800"
+              />
+            ) : isAndroidApp ? (
+              <AndroidUpgradeNotice />
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleUpgrade}
+                  disabled={isProcessing}
+                  className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-lg font-bold text-white transition-colors hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Processing Secure Payment...
+                    </span>
+                  ) : (
+                    "Start Premium"
+                  )}
+                </button>
 
-            <p className="mt-4 text-center text-xs text-zinc-500">
-              Cancel anytime. No credit card required for trial.
-            </p>
+                <p className="mt-4 text-center text-xs text-zinc-500">
+                  Cancel anytime. No credit card required for trial.
+                </p>
+              </>
+            )}
           </>
         )}
       </div>

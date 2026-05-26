@@ -12,6 +12,8 @@ import {
   isTrialExpiredForUser,
   resolveIsPremium,
 } from "@/lib/trial";
+import { useIsAndroidApp } from "@/hooks/useIsAndroidApp";
+import { AndroidUpgradeNotice } from "@/components/AndroidUpgradeNotice";
 import { shuffleLessonRecord, shuffleMcqOptions } from "@/lib/quiz-shuffle";
 import { InstructionsBanner } from "@/components/InstructionsBanner";
 import { LevelButtons } from "@/components/LevelButtons";
@@ -81,6 +83,7 @@ export function Dashboard({ user }: DashboardProps) {
 
   const supabase = createClient();
   const router = useRouter();
+  const { isAndroidApp, isReady: deviceReady } = useIsAndroidApp();
 
   // 1. Load public.profiles (is_premium, credits, last_reset_date, created_at)
   useEffect(() => {
@@ -542,12 +545,21 @@ export function Dashboard({ user }: DashboardProps) {
               <div className="mt-3 flex flex-col gap-2">
                 <p className="text-sm font-semibold text-red-500">{generateMessage}</p>
                 {!isPremium && isTrialExpired && (
-                  <Link
-                    href="/upgrade"
-                    className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2 text-white font-bold text-center block"
-                  >
-                    Upgrade to Premium
-                  </Link>
+                  !deviceReady ? (
+                    <div
+                      aria-hidden
+                      className="h-10 w-full animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800"
+                    />
+                  ) : isAndroidApp ? (
+                    <AndroidUpgradeNotice />
+                  ) : (
+                    <Link
+                      href="/upgrade"
+                      className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2 text-white font-bold text-center block"
+                    >
+                      Upgrade to Premium
+                    </Link>
+                  )
                 )}
               </div>
             )}
@@ -954,12 +966,21 @@ export function Dashboard({ user }: DashboardProps) {
                   <p className="text-zinc-900 dark:text-zinc-100 mt-1">{user.email}</p>
                 </div>
                 {!isPremium && (
-                  <Link
-                    href="/upgrade"
-                    className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-white font-bold text-[19px] hover:from-indigo-700 hover:to-purple-700 transition-colors text-center block"
-                  >
-                    Upgrade to Premium
-                  </Link>
+                  !deviceReady ? (
+                    <div
+                      aria-hidden
+                      className="h-12 w-full animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800"
+                    />
+                  ) : isAndroidApp ? (
+                    <AndroidUpgradeNotice />
+                  ) : (
+                    <Link
+                      href="/upgrade"
+                      className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-white font-bold text-[19px] hover:from-indigo-700 hover:to-purple-700 transition-colors text-center block"
+                    >
+                      Upgrade to Premium
+                    </Link>
+                  )
                 )}
                 {isPremium && (
                   <div className="space-y-3">

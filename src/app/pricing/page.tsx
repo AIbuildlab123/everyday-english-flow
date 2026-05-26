@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
+import { useIsAndroidApp } from "@/hooks/useIsAndroidApp";
+import { AndroidUpgradeNotice } from "@/components/AndroidUpgradeNotice";
 import { Check } from "lucide-react";
 
 export default function PricingPage() {
   const { user, loading } = useSession();
+  const { isAndroidApp, isReady: deviceReady } = useIsAndroidApp();
 
   if (loading) {
     return (
@@ -41,12 +44,21 @@ export default function PricingPage() {
             $4.99<span className="text-lg text-zinc-600 dark:text-zinc-400">/month</span>
           </p>
         </div>
-        <Link
-          href={user ? "/upgrade" : "/"}
-          className="block w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-center text-lg font-bold text-white transition-colors hover:from-indigo-700 hover:to-purple-700"
-        >
-          {user ? "Upgrade to Premium" : "Sign in to upgrade"}
-        </Link>
+        {!deviceReady ? (
+          <div
+            aria-hidden
+            className="h-12 w-full animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800"
+          />
+        ) : isAndroidApp ? (
+          <AndroidUpgradeNotice />
+        ) : (
+          <Link
+            href={user ? "/upgrade" : "/"}
+            className="block w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-center text-lg font-bold text-white transition-colors hover:from-indigo-700 hover:to-purple-700"
+          >
+            {user ? "Upgrade to Premium" : "Sign in to upgrade"}
+          </Link>
+        )}
         <Link
           href="/"
           className="mt-4 block text-center text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-400"
