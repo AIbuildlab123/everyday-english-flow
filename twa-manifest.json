@@ -22,7 +22,7 @@
     "keyPassword": "morefree123"
   },
   "appVersionName": "0.1.2",
-  "appVersionCode": 5,
+  "appVersionCode": 6,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://www.everydayenglishflow.com/manifest.json",
