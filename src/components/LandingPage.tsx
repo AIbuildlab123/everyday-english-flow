@@ -32,6 +32,24 @@ const categoryCards = [
   },
 ];
 
+const testimonials = [
+  {
+    name: "Naty C. (Philippines)",
+    quote:
+      "I really enjoyed the American idiom challenge feature. Also, I like how I even got practical suggestions on how to phrase things in my unique situations.",
+  },
+  {
+    name: "Michiko T. (Japan)",
+    quote:
+      "I love this app because I can study natural phrases and learn many new words. In Japan we study many unnatural conversations in textbooks.",
+  },
+  {
+    name: "Hazuki M. (Japan)",
+    quote:
+      "I can use the key phrases section to help with my job. And I can learn more about American culture in the Cultural Insight and American Culture Quiz sections.",
+  },
+];
+
 export function LandingPage() {
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -132,7 +150,32 @@ export function LandingPage() {
           )}
         </section>
 
-        {/* How it Works - directly below sign in */}
+        {/* What Students Say */}
+        <section className="w-full max-w-6xl mx-auto py-14 md:py-16 px-2 md:px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-indigo-900 dark:text-indigo-100 tracking-tight mb-10 md:mb-12">
+            What Students Say
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {testimonials.map((t) => (
+              <div
+                key={t.name}
+                className="flex flex-col rounded-xl bg-white border border-slate-200 shadow-sm dark:bg-slate-800/80 dark:border-slate-700 p-6 md:p-8"
+              >
+                <p className="text-lg tracking-wide mb-4" aria-label="5 out of 5 stars">
+                  ⭐⭐⭐⭐⭐
+                </p>
+                <p className="italic text-slate-600 dark:text-slate-300 text-base md:text-lg leading-relaxed flex-1">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <p className="mt-5 font-bold text-slate-900 dark:text-slate-100">
+                  {t.name}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* How it Works */}
         <section className="w-full border-y border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40 py-20">
           <h2 className="text-4xl md:text-5xl font-bold text-center text-indigo-900 dark:text-indigo-100 mb-10 tracking-tight">
             How it Works
