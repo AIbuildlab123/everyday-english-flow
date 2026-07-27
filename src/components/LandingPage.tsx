@@ -71,7 +71,7 @@ export function LandingPage() {
             />
             <div className="w-full max-w-2xl mx-auto px-6 md:px-8 text-center">
               <p className="text-lg md:text-xl lg:text-2xl text-slate-600 dark:text-slate-300">
-                Master real-life conversations with AI-powered lessons. Tailored to your level to create custom, instant English lessons. Start practicing today!
+                Stop studying textbooks! Prepare for real-life situations with custom, AI-generated English conversation scripts.
               </p>
             </div>
           </div>
