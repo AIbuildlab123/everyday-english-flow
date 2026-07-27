@@ -20,6 +20,14 @@ plugins {
     id 'com.android.application'
 }
 
+// Load signing config from ../keystore.properties (repo root) so `gradlew bundleRelease`
+// produces a SIGNED .aab without needing `bubblewrap build`.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 def twaManifest = [
     applicationId: 'com.everydayenglishflow.www.twa',
     hostName: 'www.everydayenglishflow.com', // The domain being opened in the TWA.
@@ -53,12 +61,24 @@ def twaManifest = [
 android {
     compileSdkVersion 36
     namespace "com.everydayenglishflow.www.twa"
+
+    signingConfigs {
+        release {
+            if (keystoreProperties.getProperty("storeFile")) {
+                storeFile rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword keystoreProperties.getProperty("storePassword")
+                keyAlias keystoreProperties.getProperty("keyAlias")
+                keyPassword keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId "com.everydayenglishflow.www.twa"
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 6
-        versionName "0.1.2"
+        versionCode 7
+        versionName "1.0.6"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -153,6 +173,7 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {
